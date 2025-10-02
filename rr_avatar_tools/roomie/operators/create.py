@@ -239,9 +239,108 @@ class RR_OT_CreateRoomieInternalItem(RecRoomRoomieMeshOperator):
         return {"FINISHED"}
 
 
+class RR_OT_CreateLeftSideAvatarItem(RecRoomRoomieMeshOperator):
+    """Duplicate and mirror a roomie item across the z-axis"""
+
+    bl_idname = "rr.create_left_side_roomie_item"
+    bl_label = "Create Left Side Item"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return any(cls.target_meshes())
+
+    @classmethod
+    def target_meshes(cls):
+        def is_ear_or_wrist_item(object_):
+            parts = object_.name.split("_")
+
+            if "Wrist" in parts:
+                return True
+
+            return "Ear" in parts
+
+        selection = [m for m in cls.selected_meshes() if is_ear_or_wrist_item(m)]
+
+        return selection
+
+    def execute(self, context):
+        # Cache selection
+        active = bpy.context.view_layer.objects.active
+        selection = self.target_meshes()
+
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = None
+
+        duplicated_selection = []
+
+        for selected in selection:
+            name = selected.name.rstrip(".R")
+            selected.name = f"{name}.R"
+
+            selected.select_set(True)
+
+            bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+
+            # Duplicate selection
+            duplicate = selected.copy()
+            duplicate.data = selected.data.copy()
+            bpy.context.collection.objects.link(duplicate)
+            selected.select_set(False)
+
+            # Remove duplicate from all collections
+            for collection in duplicate.users_collection[:]:
+                collection.objects.unlink(duplicate)
+
+            # Put duplicate into the same collections as selected mesh
+            for collection in selected.users_collection:
+                collection.objects.link(duplicate)
+
+            selected = duplicate
+            selected.name = f"{name}.L"
+            selected.select_set(True)
+            bpy.context.view_layer.objects.active = selected
+
+            # Add modifier
+            modifier: bpy.types.MirrorModifier = selected.modifiers.new(
+                "Mirror", "MIRROR"
+            )
+
+            # Configure modifier
+            modifier.use_axis[0] = True
+
+            # Apply modifier
+            bpy.ops.object.modifier_apply(modifier="Mirror")
+
+            bpy.ops.object.mode_set(mode="EDIT")
+
+            # Select all geo
+            bpy.ops.mesh.select_all(action="SELECT")
+
+            # Delete right-side geo
+            bpy.ops.mesh.bisect(
+                plane_co=(0, 0, 0), plane_no=(1, 0, 0), clear_inner=True, flip=False
+            )
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+            bpy.context.view_layer.objects.active = None
+            selected.select_set(False)
+
+            duplicated_selection.append(selected)
+
+        # Restore selection
+        bpy.context.view_layer.objects.active = None
+        bpy.ops.object.select_all(action="DESELECT")
+        for selected in duplicated_selection:
+            selected.select_set(True)
+
+        return {"FINISHED"}
+
+
 classes = (
     RR_OT_CreateRoomieItem,
     RR_OT_CreateRoomieInternalItem,
+    RR_OT_CreateLeftSideAvatarItem,
 )
 
 panel = (RR_OT_CreateRoomieItem,)

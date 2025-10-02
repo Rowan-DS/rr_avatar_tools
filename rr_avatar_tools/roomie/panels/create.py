@@ -22,6 +22,12 @@ class SCENE_PT_RRRoomieToolsCreatePanel(RecRoomRoomieOperatorPanel):
             icon="COLLECTION_NEW",
         )
 
+        layout.operator(
+            "rr.create_left_side_roomie_item",
+            text="Create Left Side Item",
+            icon="MOD_MIRROR",
+        )
+
 
 classes = (SCENE_PT_RRRoomieToolsCreatePanel,)
 
