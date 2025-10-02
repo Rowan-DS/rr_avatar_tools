@@ -4,6 +4,7 @@ from rr_avatar_tools.roomie.operators.base import RecRoomRoomieMeshOperator
 from rr_avatar_tools.utils import put_file_in_known_good_state
 from rr_avatar_tools.roomie.budgets import budgets
 from rr_avatar_tools.roomie.bounds import bounding_boxes
+from rr_avatar_tools.roomie.bones import bones
 
 
 class Icons:
@@ -212,6 +213,50 @@ class RR_OT_RoomieDiagnosticsFixMissingArmatureModifier(
 
         return {"FINISHED"}
 
+class RR_OT_RoomieDiagnosticsCheckBoneWeighting(RecRoomRoomieDiagnosticOperator):
+    """Ensure bone weights are set correctly."""
+
+    bl_idname = "rr.roomie_diagnostics_check_bone_weighting"
+    bl_label = "Roomie: Check Bone Weighting"
+    bl_options = {"REGISTER", "UNDO"}
+
+    label = {"text": "Invalid Bone Found", "icon": Icons.WARNING}
+
+    @classmethod
+    def diagnose(cls, mesh):
+        parts = mesh.name.upper().split("_")
+        body_type = parts[0].upper()
+        outfit_type = parts[-2].upper()
+
+        # The name should be something like RM1_MyItem_Hat_LOD0,
+        # so we take out 'HAT' and 'RM1'
+
+        body_bones = bones.get(body_type)
+
+        if not body_bones:
+            return False
+
+        expected_bone_names = body_bones.get(outfit_type)
+
+        if not expected_bone_names:
+            return False
+
+        # Find vertex groups that have at least one vertex with non-zero weight
+        indices = {
+            g.group for v in mesh.data.vertices for g in v.groups if g.weight > 0
+        }
+        actual_bone_names = {
+            mesh.vertex_groups[i].name
+            for i in indices
+            if mesh.vertex_groups[i].name.startswith("Jnt.")
+        }
+
+        unexpected_bones = list(actual_bone_names.difference(expected_bone_names))
+
+        if unexpected_bones:
+            cls.label["text"] = f'Invalid Bone(s) Found: {", ".join(unexpected_bones)}'
+
+        return not actual_bone_names.issubset(expected_bone_names)
 
 class RR_OT_RoomieDiagnosticsLimitBonesPerVertex(RecRoomRoomieDiagnosticOperator):
     """Fix bone groups"""
@@ -459,6 +504,7 @@ classes = (
     RR_OT_RoomieDiagnosticsLimitBonesPerVertex,
     RR_OT_RoomieDiagnosticsFixNgons,
     RR_OT_RoomieDiagnosticsCheckTriangleCount,
+    RR_OT_RoomieDiagnosticsCheckBoneWeighting,
     RR_OT_RoomieDiagnosticsCheckBounds,
 )
 
@@ -468,6 +514,7 @@ panel = (
     RR_OT_RoomieDiagnosticsLimitBonesPerVertex,
     RR_OT_RoomieDiagnosticsFixNgons,
     RR_OT_RoomieDiagnosticsCheckTriangleCount,
+    RR_OT_RoomieDiagnosticsCheckBoneWeighting,
     RR_OT_RoomieDiagnosticsCheckBounds,
 )
 
