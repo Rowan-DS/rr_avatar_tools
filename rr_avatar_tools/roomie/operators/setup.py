@@ -126,7 +126,7 @@ class RR_OT_SetupRoomieImportMeshes(RecRoomRoomieOperator):
 
         bpy.ops.object.select_all(action="DESELECT")
 
-        # Ensure armature modifers are correctly configured
+        # Ensure armature modifiers are correctly configured
         col = bpy.data.collections["RM1_Resources"]
         for obj in col.objects:
             for modifier in [m for m in obj.modifiers if m.type == "ARMATURE"]:
@@ -138,6 +138,13 @@ class RR_OT_SetupRoomieImportMeshes(RecRoomRoomieOperator):
         roomie_skeleton.select_set(True)
         index = bpy.data.collections[:].index(col)
         bpy.ops.object.link_to_collection(collection_index=index)
+
+        # When setting up Roomie, we want to make sure we capture the full
+        # length of the animation so we extend the end frame and reset.
+        bpy.context.scene.frame_current = 0
+        bpy.context.scene.frame_start = 0
+        bpy.context.scene.frame_end = 350
+        bpy.context.scene.render.fps = 30
 
         return {"FINISHED"}
 
